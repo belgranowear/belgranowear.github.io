@@ -1,0 +1,21 @@
+name: rebuild
+on:
+  schedule:
+    - cron: "0 0 * * 1" # every monday
+
+jobs:
+
+  update:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run container
+        uses: ./
+        with:
+          command: docker compose up --build
+          working-directory: $GITHUB_WORKSPACE
+
+      - name: Update repository
+        run: ./update-pages.sh
