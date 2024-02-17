@@ -1,7 +1,7 @@
 name: rebuild
 on:
   schedule:
-    - cron: "0 0 * * 1" # every monday
+    - cron: "0 0 1 * *" # every 1st of each month
 
 jobs:
 
