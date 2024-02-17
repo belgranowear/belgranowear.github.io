@@ -33,7 +33,7 @@ class UpdateSchedule extends Command
      *
      * @var string
      */
-    protected $description = 'Update schedule references from Ferrovias\' official website';
+    protected $description = 'Updates the schedule references from Ferrovias\' official website';
     
     /**
      * buildFilename

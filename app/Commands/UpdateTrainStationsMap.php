@@ -24,7 +24,7 @@ class UpdateTrainStationsMap extends Command
      *
      * @var string
      */
-    protected $description = 'Update the map of Belgrano Norte\'s network managed by Ferrovias.';
+    protected $description = 'Updates the map of Belgrano Norte\'s network managed by Ferrovias.';
 
     /**
      * Execute the console command.
