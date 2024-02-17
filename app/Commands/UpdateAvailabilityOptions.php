@@ -26,7 +26,7 @@ class UpdateAvailabilityOptions extends Command
      *
      * @var string
      */
-    protected $description = 'Update availability options reference from Ferrovias\' official website';
+    protected $description = 'Updates the availability options reference from Ferrovias\' official website';
 
     /**
      * Execute the console command.
