@@ -33,8 +33,7 @@ class UpdateTrainStationsMap extends Command
      */
     public function handle()
     {
-        $network    = env('OVERPASS_FILTER_NETWORK',  'Belgrano');
-        $operator   = env('OVERPASS_FILTER_OPERATOR', 'Ferrovías');
+        $operator = env('OVERPASS_FILTER_OPERATOR', 'Ferrovías');
 
         $response = Http::asForm()->post(
             url:    env('OVERPASS_API_INTERPRETER_URL'),
@@ -42,7 +41,7 @@ class UpdateTrainStationsMap extends Command
                 'data' => "
                     [out:json];
 
-                    nwr[network=\"{$network}\"][operator=\"{$operator}\"];
+                    nwr[operator=\"{$operator}\"];
 
                     out center;
                 "
