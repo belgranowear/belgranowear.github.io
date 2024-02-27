@@ -57,7 +57,8 @@ class UpdateTrainStationsMap extends Command
         Storage::put(
             path:       self::CACHE_FILENAME,
             contents:   json_encode(
-                $response->json()
+                value: $response->json(),
+                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
             )
         );
 

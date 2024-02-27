@@ -198,7 +198,10 @@ class UpdateSchedule extends Command
 
                         Storage::put(
                             path:       $filename,
-                            contents:   json_encode( $this->query($query) )
+                            contents:   json_encode(
+                                value: $this->query($query),
+                                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+                            )
                         );
 
                         $this->comment('  => ' . $filename);
@@ -214,7 +217,10 @@ class UpdateSchedule extends Command
 
                         Storage::put(
                             path:       $filename,
-                            contents:   json_encode( $this->query($query) )
+                            contents:   json_encode(
+                                value: $this->query($query),
+                                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+                            )
                         );
 
                         $this->comment('  => ' . $filename);

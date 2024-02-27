@@ -63,7 +63,10 @@ class UpdateHashTable extends Command
 
         Storage::put(
             path:       self::CACHE_FILENAME,
-            contents:   json_encode( $checksums )
+            contents:   json_encode(
+                value: $checksums,
+                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+            )
         );
 
         $this->info('Success updating the list of checksums.');

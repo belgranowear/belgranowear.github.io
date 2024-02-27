@@ -75,7 +75,10 @@ class UpdateAvailabilityOptions extends Command
 
         Storage::put(
             path:       self::CACHE_FILENAME,
-            contents:   json_encode($cachedData)
+            contents:   json_encode(
+                value: $cachedData,
+                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+            )
         );
 
         $this->info('Success updating availability options.');

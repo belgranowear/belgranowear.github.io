@@ -65,7 +65,10 @@ class UpdateHolidaysList extends Command
 
             Storage::put(
                 path:       $filename,
-                contents:   json_encode( $response->json() )
+                contents:   json_encode(
+                    value: $response->json(),
+                    flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+                )
             );
 
             $this->comment("Stored holidays list for {$year} as \"{$filename}\".");
