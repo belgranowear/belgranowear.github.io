@@ -2,7 +2,7 @@ name: rebuild
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 1 * *" # every 1st of each month
+    - cron: "0 0 * * *" # every day at 12:00 a.m.
 
 jobs:
 
