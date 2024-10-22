@@ -120,6 +120,12 @@ class UpdateSchedule extends Command
 
         $this->comment('R = ' . json_encode($schedule));
 
+        if (empty($schedule)) {
+            $this->warn(
+                __METHOD__ . ': couldn\'t find any schedule for query: ' . json_encode($query)
+            );
+        }
+
         return $schedule;
     }
     
@@ -149,6 +155,24 @@ class UpdateSchedule extends Command
         if (!$this->availabilityOptions) {
             throw new Exception('No availability options found, please try again later.');
         }
+    }
+
+    private function saveSchedule(array $schedule, string $filename): void {
+        if (empty($schedule)) {
+            $this->warn(
+                __METHOD__ . ': couldn\'t save empty schedule for filename: ' . $filename
+            );
+
+            return;
+        }
+
+        Storage::put(
+            path:       $filename,
+            contents:   json_encode(
+                value: $schedule,
+                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
+            )
+        );
     }
 
     /**
@@ -198,12 +222,9 @@ class UpdateSchedule extends Command
                             destination:     $query['estacion_d']
                         );
 
-                        Storage::put(
-                            path:       $filename,
-                            contents:   json_encode(
-                                value: $this->query($query),
-                                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
-                            )
+                        $this->saveSchedule(
+                            schedule: $this->query($query),
+                            filename: $filename
                         );
 
                         $this->comment('  => ' . $filename);
@@ -217,12 +238,9 @@ class UpdateSchedule extends Command
                             destination:     $query['estacion_d']
                         );
 
-                        Storage::put(
-                            path:       $filename,
-                            contents:   json_encode(
-                                value: $this->query($query),
-                                flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
-                            )
+                        $this->saveSchedule(
+                            schedule: $this->query($query),
+                            filename: $filename
                         );
 
                         $this->comment('  => ' . $filename);
