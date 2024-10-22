@@ -35,7 +35,7 @@ class UpdateTrainStationsMap extends Command
     {
         $operator = env('OVERPASS_FILTER_OPERATOR', 'Ferrovías');
 
-        $response = Http::asForm()->post(
+        $response = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->asForm()->post(
             url:    env('OVERPASS_API_INTERPRETER_URL'),
             data:   [
                 'data' => "

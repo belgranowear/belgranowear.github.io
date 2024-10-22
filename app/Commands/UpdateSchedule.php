@@ -72,7 +72,7 @@ class UpdateSchedule extends Command
     private function query(array $query): array {
         $this->comment('Q = ' . json_encode($query));
 
-        $response = Http::asForm()->post(
+        $response = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->asForm()->post(
             url:    env('RESULTS_FORM_URL'),
             data:   $query
         );
@@ -156,7 +156,7 @@ class UpdateSchedule extends Command
      */
     public function handle()
     {
-        $baseFormResponse = Http::get( env('RESULTS_FORM_URL') );
+        $baseFormResponse = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->get( env('RESULTS_FORM_URL') );
 
         if (!$baseFormResponse->successful()) {
             $this->error("Something went wrong: {$baseFormResponse->body()}");

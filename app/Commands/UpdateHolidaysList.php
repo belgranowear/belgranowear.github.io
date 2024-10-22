@@ -53,7 +53,7 @@ class UpdateHolidaysList extends Command
     public function handle()
     {
         foreach ([ date('Y'), (date('Y') + 1) ] as $year) {
-            $response = Http::get( env('HOLIDAYS_LIST_API_URL') . "/{$year}" );
+            $response = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->get( env('HOLIDAYS_LIST_API_URL') . "/{$year}" );
 
             if (!$response->successful()) {
                 $this->error("Something went wrong: {$response->body()}");

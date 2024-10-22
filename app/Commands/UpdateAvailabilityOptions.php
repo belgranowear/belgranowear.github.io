@@ -35,7 +35,7 @@ class UpdateAvailabilityOptions extends Command
      */
     public function handle()
     {
-        $baseFormResponse = Http::get( env('MAIN_WEBSITE_URL') );
+        $baseFormResponse = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->get( env('MAIN_WEBSITE_URL') );
 
         if (!$baseFormResponse->successful()) {
             $this->error("Something went wrong: {$baseFormResponse->body()}");
