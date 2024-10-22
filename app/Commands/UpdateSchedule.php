@@ -118,6 +118,8 @@ class UpdateSchedule extends Command
             }
         }
 
+        $this->comment('R = ' . json_encode($schedule));
+
         return $schedule;
     }
     
