@@ -2,6 +2,8 @@
 
 namespace App\Commands;
 
+use Illuminate\Support\Arr;
+
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -54,10 +56,20 @@ class UpdateTrainStationsMap extends Command
             return Command::FAILURE;
         }
 
+        $contents = $response->json();
+
+        if (!$contents) {
+            $this->error('No data was retrieved from the Overpass API.');
+
+            return Command::FAILURE;
+        }
+
+        Arr::forget($contents, 'osm3s.timestamp_osm_base');
+
         Storage::put(
             path:       self::CACHE_FILENAME,
             contents:   json_encode(
-                value: $response->json(),
+                value: $contents,
                 flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
             )
         );
