@@ -63,10 +63,18 @@ class UpdateHolidaysList extends Command
 
             $filename = $this->buildFilename($year);
 
+            $contents = $response->json();
+
+            if (!$contents) {
+                $this->error("Couldn't retrieve the list of holidays for {$year}.");
+
+                return Command::FAILURE;
+            }
+
             Storage::put(
                 path:       $filename,
                 contents:   json_encode(
-                    value: $response->json(),
+                    value: $contents,
                     flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
                 )
             );
