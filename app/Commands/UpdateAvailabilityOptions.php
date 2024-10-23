@@ -73,6 +73,12 @@ class UpdateAvailabilityOptions extends Command
             }
         }
 
+        if (empty($cachedData)) {
+            $this->error('No data was retrieved from the availability options container.');
+
+            return Command::FAILURE;
+        }
+
         Storage::put(
             path:       self::CACHE_FILENAME,
             contents:   json_encode(
