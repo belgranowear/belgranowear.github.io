@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This one might fail, it really isn't particularly useful in production
+git config --global --add safe.directory /var/www;
+
 set -e; # quit on error
 
 composer install;

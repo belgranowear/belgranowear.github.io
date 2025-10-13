@@ -56,24 +56,36 @@ class UpdateHolidaysList extends Command
             $response = Http::retry(times: 3, sleepMilliseconds: 5 * 1000)->get( env('HOLIDAYS_LIST_API_URL') . "/{$year}" );
 
             if (!$response->successful()) {
-                $this->error("Something went wrong: {$response->body()}");
+                $this->error("Something went wrong: " . $response->status() . " - " . $response->body());
 
                 return Command::FAILURE;
             }
 
             $filename = $this->buildFilename($year);
 
-            $contents = $response->json();
+            $holidays = $response->json();
 
-            if (!$contents) {
+            if (!$holidays) {
                 $this->error("Couldn't retrieve the list of holidays for {$year}.");
 
                 return Command::FAILURE;
             }
 
+            // Transform the data to the old format
+            $contents = array_map(function ($holiday) {
+                return [
+                    'motivo' => $holiday['nombre'],
+                    'tipo' => $holiday['tipo'],
+                    'info' => '', // No info available in the new API
+                    'dia' => (int) substr($holiday['fecha'], 8, 2),
+                    'mes' => (int) substr($holiday['fecha'], 5, 2),
+                    'id' => str_replace(' ', '-', strtolower($holiday['nombre'])),
+                ];
+            }, $holidays);
+
             Storage::put(
-                path:       $filename,
-                contents:   json_encode(
+                path: $filename,
+                contents: json_encode(
                     value: $contents,
                     flags: JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS
                 )
