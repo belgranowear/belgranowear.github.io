@@ -33,6 +33,9 @@ class UpdateHashList extends Command
      */
     public function handle()
     {
+        $updated = 0;
+        $verbose = filter_var(env('DEBUG_CHECKSUMS', false), FILTER_VALIDATE_BOOLEAN);
+
         foreach (
             Arr::where(
                 array:      Storage::files(),
@@ -54,9 +57,14 @@ class UpdateHashList extends Command
                 contents:   $checksum
             );
 
-            $this->comment("Set checksum for \"{$checksumFilename}\" to {$checksum}.");
+            $updated++;
+
+            if ($verbose) {
+                $this->comment("Set checksum for \"{$checksumFilename}\" to {$checksum}.");
+            }
         }
 
+        $this->comment("Updated {$updated} checksum files.");
         $this->info('Success updating the list of checksums.');
 
         return Command::SUCCESS;
