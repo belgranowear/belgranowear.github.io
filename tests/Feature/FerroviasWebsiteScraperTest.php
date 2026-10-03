@@ -474,8 +474,13 @@ it('spaces Ferrovias requests and identifies the updater with a project user age
 
     $exitCode = Artisan::call('app:update-schedule');
 
+    $output = Artisan::output();
+
     // 1 form + 2 adjacent seeds + 2 formations; every request after the first waits.
-    expect($exitCode)->toBe(Command::SUCCESS);
+    expect($exitCode)->toBe(Command::SUCCESS)
+        ->and($output)->toContain('Throttling Ferrovias requests to one every 60000ms')
+        ->and($output)->toContain('Segment 1 (lv) seeds: 2/2 (100%) · 3 requests · 0 failed')
+        ->and($output)->toContain('Segment 1 (lv) formations: 2/2 (100%) · 5 requests · 0 failed');
     Http::assertSentCount(5);
     Http::assertSent(fn (Request $request) => str_starts_with(
         $request->header('User-Agent')[0] ?? '',

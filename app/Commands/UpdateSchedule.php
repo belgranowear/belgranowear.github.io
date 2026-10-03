@@ -43,6 +43,7 @@ class UpdateSchedule extends Command
     const REQUEST_CONNECT_TIMEOUT_SECONDS = 5;
     const MAX_CONSECUTIVE_REMOTE_ERRORS = 5;
     const MAX_FORMATION_STOP_GAP_MINUTES = 60;
+    const PROGRESS_LOG_EVERY = 10;
     const BOT_CHALLENGE_MARKERS = [
         'Checking your browser',
         'Javascript required',
@@ -53,6 +54,7 @@ class UpdateSchedule extends Command
     private ?float $lastRemoteRequestAt = null;
     private int $remoteRequests = 0;
     private int $consecutiveRemoteErrors = 0;
+    private float $startedAt = 0.0;
 
     /**
      * The signature of the command.
@@ -350,6 +352,14 @@ class UpdateSchedule extends Command
         $this->remoteRequests = 0;
         $this->consecutiveRemoteErrors = 0;
         $this->stationIdsByQueryName = [];
+        $this->startedAt = microtime(true);
+
+        $this->comment(
+            'Throttling Ferrovias requests to one every ' .
+            $this->envInt('SCHEDULE_REQUEST_DELAY_MS', self::DEFAULT_REQUEST_DELAY_MS) . 'ms (+ up to ' .
+            $this->envInt('SCHEDULE_REQUEST_JITTER_MS', self::DEFAULT_REQUEST_JITTER_MS) . 'ms jitter); ' .
+            'progress is logged every ' . self::PROGRESS_LOG_EVERY . ' queries.'
+        );
 
         $sourceUrl = env('RESULTS_FORM_URL');
 
@@ -466,7 +476,8 @@ class UpdateSchedule extends Command
             $segmentSeedQueries = $totalSeedQueries - $seedQueriesBeforeSegment;
             $this->comment(
                 "Segment {$scheduleSegment} ({$scheduleSegmentQueryValue}): discovered " .
-                count($formations) . " formations from {$segmentSeedQueries} adjacent station seed queries."
+                count($formations) . " formations from {$segmentSeedQueries} adjacent station seed queries " .
+                "[{$this->formatDuration(microtime(true) - $this->startedAt)} elapsed]."
             );
 
             if (empty($formations)) {
@@ -481,7 +492,9 @@ class UpdateSchedule extends Command
                 continue;
             }
 
-            foreach ($formations as $formation) {
+            $formationsStartedAt = microtime(true);
+
+            foreach ($formations as $formationIndex => $formation) {
                 $totalFormationQueries++;
 
                 try {
@@ -509,10 +522,49 @@ class UpdateSchedule extends Command
                     );
                     $this->registerConsecutiveRemoteError();
                 }
+
+                $this->reportProgress(
+                    label: "Segment {$scheduleSegment} ({$scheduleSegmentQueryValue}) formations",
+                    done: $formationIndex + 1,
+                    total: count($formations),
+                    phaseStartedAt: $formationsStartedAt,
+                    failedQueries: $failedQueries,
+                );
             }
         }
 
         return $schedules;
+    }
+
+    private function reportProgress(
+        string $label,
+        int $done,
+        int $total,
+        float $phaseStartedAt,
+        int $failedQueries,
+    ): void {
+        if ($done % self::PROGRESS_LOG_EVERY !== 0 && $done !== $total) {
+            return;
+        }
+
+        $phaseElapsed = microtime(true) - $phaseStartedAt;
+        $remaining = $total - $done;
+        $eta = $remaining > 0 ? ' · ETA ' . $this->formatDuration($phaseElapsed / $done * $remaining) : '';
+
+        $this->line(
+            "{$label}: {$done}/{$total} (" . (int) floor($done * 100 / max($total, 1)) . '%)' .
+            " · {$this->remoteRequests} requests · {$failedQueries} failed" .
+            ' · ' . $this->formatDuration(microtime(true) - $this->startedAt) . ' elapsed' . $eta
+        );
+    }
+
+    private function formatDuration(float $seconds): string
+    {
+        $seconds = (int) round($seconds);
+
+        return $seconds >= 60
+            ? sprintf('%dm%02ds', intdiv($seconds, 60), $seconds % 60)
+            : "{$seconds}s";
     }
 
     private function discoverFormationsForSegment(
@@ -522,8 +574,15 @@ class UpdateSchedule extends Command
         int &$totalSeedQueries,
     ): array {
         $formations = [];
+        $stationPairs = $this->adjacentStationPairs();
+        $seedsStartedAt = microtime(true);
 
-        foreach ($this->adjacentStationPairs() as $stationPair) {
+        $this->comment(
+            "Segment {$scheduleSegment} ({$scheduleSegmentQueryValue}): querying " . count($stationPairs) .
+            ' adjacent station pairs to discover formations...'
+        );
+
+        foreach ($stationPairs as $stationPairIndex => $stationPair) {
             $totalSeedQueries++;
 
             try {
@@ -551,6 +610,14 @@ class UpdateSchedule extends Command
                 );
                 $this->registerConsecutiveRemoteError();
             }
+
+            $this->reportProgress(
+                label: "Segment {$scheduleSegment} ({$scheduleSegmentQueryValue}) seeds",
+                done: $stationPairIndex + 1,
+                total: count($stationPairs),
+                phaseStartedAt: $seedsStartedAt,
+                failedQueries: $failedQueries,
+            );
         }
 
         $formationNumbers = array_keys($formations);
