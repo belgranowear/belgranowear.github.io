@@ -148,12 +148,15 @@ class UpdateAvailabilityOptions extends Command
 
         try {
             return [
-                Http::retry(
-                    times: 3,
-                    sleepMilliseconds: 5 * 1000,
-                    when: fn (\Exception $exception) => $this->shouldRetry($exception),
-                    throw: false,
-                )->get($sourceUrl),
+                Http::withUserAgent(env('SCHEDULE_USER_AGENT') ?: UpdateSchedule::DEFAULT_USER_AGENT)
+                    ->timeout(UpdateSchedule::REQUEST_TIMEOUT_SECONDS)
+                    ->connectTimeout(UpdateSchedule::REQUEST_CONNECT_TIMEOUT_SECONDS)
+                    ->retry(
+                        times: 3,
+                        sleepMilliseconds: 5 * 1000,
+                        when: fn (\Exception $exception) => $this->shouldRetry($exception),
+                        throw: false,
+                    )->get($sourceUrl),
                 null,
             ];
         } catch (\Throwable $exception) {
