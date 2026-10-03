@@ -480,7 +480,8 @@ it('spaces Ferrovias requests and identifies the updater with a project user age
     expect($exitCode)->toBe(Command::SUCCESS)
         ->and($output)->toContain('Throttling Ferrovias requests to one every 60000ms')
         ->and($output)->toContain('Segment 1 (lv) seeds: 2/2 (100%) · 3 requests · 0 failed')
-        ->and($output)->toContain('Segment 1 (lv) formations: 2/2 (100%) · 5 requests · 0 failed');
+        ->and($output)->toContain('Segment 1 (lv) formations: 2/2 (100%) · 5 requests · 0 failed')
+        ->and($output)->toContain('All trains seen by adjacent seed queries are covered by formation schedules.');
     Http::assertSentCount(5);
     Http::assertSent(fn (Request $request) => str_starts_with(
         $request->header('User-Agent')[0] ?? '',
@@ -613,35 +614,56 @@ it('refuses to expand formations whose stop times are not in travel order', func
         ->and(Storage::exists('schedule_1.2.3_data.json'))->toBeFalse();
 });
 
-it('warns about station pairs that no formation refreshed', function () {
+it('keeps seed trains missing from formations and warns about pairs no formation refreshed', function () {
     setUpdaterEnv('RESULTS_FORM_URL', 'https://ferrovias.test/horarios/');
-    setUpTwoStationAvailabilityOptions();
+
+    Storage::put('availability_options.json', json_encode([
+        'origin' => ['1' => 'Retiro', '2' => 'Saldías', '3' => 'Ciudad Universitaria'],
+        'destination' => ['1' => 'Retiro', '2' => 'Saldías', '3' => 'Ciudad Universitaria'],
+        'scheduleSegment' => ['1' => 'Lunes a Viernes'],
+        'timeFrom' => ['00:00' => '00:00'],
+        'timeTo' => ['24:00' => '24:00'],
+    ]));
 
     Http::fake(function (Request $request) {
         $query = [];
         parse_str(parse_url((string) $request->url(), PHP_URL_QUERY) ?: '', $query);
 
+        if (!$query) {
+            return Http::response(newFerroviasScheduleFormHtml([ 'Retiro', 'Saldías', 'Ciudad Universitaria' ]));
+        }
+
         if (isset($query['formacion'])) {
             return Http::response(newFerroviasFormationResultHtml([
                 ['Retiro', '5:00'],
                 ['Saldías', '5:04'],
+                ['Ciudad Universitaria', '5:08'],
             ]));
         }
 
-        if ($query) {
-            return Http::response(newFerroviasStationResultHtml([['3001', '5:00', '5:04']]));
-        }
-
-        return Http::response(newFerroviasScheduleFormHtml());
+        return match ([$query['origen'], $query['destino']]) {
+            ['Retiro', 'Saldías'] => Http::response(newFerroviasStationResultHtml([['3001', '5:00', '5:04']])),
+            ['Saldías', 'Ciudad Universitaria'] => Http::response(newFerroviasStationResultHtml([['3001', '5:04', '5:08']])),
+            // Southbound rows come without a train number, so no formation can expand them.
+            ['Ciudad Universitaria', 'Saldías'] => Http::response(newFerroviasStationResultHtml([['', '6:00', '6:04']])),
+            ['Saldías', 'Retiro'] => Http::response(newFerroviasStationResultHtml([['', '6:04', '6:08']])),
+            default => Http::response('<html><body>Unexpected query</body></html>', 500),
+        };
     });
 
     $exitCode = Artisan::call('app:update-schedule');
     $output = Artisan::output();
 
     expect($exitCode)->toBe(Command::SUCCESS)
+        ->and($output)->toContain('2 trains seen by adjacent seed queries were missing from formation schedules')
+        ->and($output)->toContain('1.3.2 (no train number) 06:00-06:04')
+        ->and($output)->toContain('::warning title=Trains missing from formation schedules::')
+        ->and(json_decode(Storage::get('schedule_1.2.1_data.json'), true))->toBe([['06:04', '06:08']])
+        ->and(json_decode(Storage::get('schedule_1.1.3_data.json'), true))->toBe([['05:00', '05:08']])
         ->and($output)->toContain('1 station pairs got no trains from any formation')
-        ->and($output)->toContain('1.2.1')
-        ->and($output)->toContain('::warning title=Schedule pairs not refreshed::');
+        ->and($output)->toContain('1.3.1')
+        ->and($output)->toContain('::warning title=Schedule pairs not refreshed::')
+        ->and(Storage::exists('schedule_1.3.1_data.json'))->toBeFalse();
 });
 
 it('summarizes checksum updates by default so action logs stay readable', function () {

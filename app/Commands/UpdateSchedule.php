@@ -55,6 +55,7 @@ class UpdateSchedule extends Command
     private int $remoteRequests = 0;
     private int $consecutiveRemoteErrors = 0;
     private float $startedAt = 0.0;
+    private array $seedSchedules = [];
 
     /**
      * The signature of the command.
@@ -128,10 +129,6 @@ class UpdateSchedule extends Command
                     );
                 }
 
-                continue;
-            }
-
-            if ($formation === '') {
                 continue;
             }
 
@@ -353,6 +350,7 @@ class UpdateSchedule extends Command
         $this->consecutiveRemoteErrors = 0;
         $this->stationIdsByQueryName = [];
         $this->startedAt = microtime(true);
+        $this->seedSchedules = [];
 
         $this->comment(
             'Throttling Ferrovias requests to one every ' .
@@ -428,6 +426,7 @@ class UpdateSchedule extends Command
             return Command::FAILURE;
         }
 
+        $this->reconcileSeedSchedules($schedules);
         $this->warnAboutMissingSchedules($schedules);
 
         $savedSchedules = 0;
@@ -597,7 +596,15 @@ class UpdateSchedule extends Command
                 $this->consecutiveRemoteErrors = 0;
 
                 foreach ($trainRows as $trainRow) {
-                    $formations[$trainRow['formation']] = true;
+                    $this->seedSchedules["{$scheduleSegment}.{$stationPair['originId']}.{$stationPair['destinationId']}"][] = [
+                        'formation' => $trainRow['formation'],
+                        'departure' => $trainRow['departure'],
+                        'arrival' => $trainRow['arrival'],
+                    ];
+
+                    if ($trainRow['formation'] !== '') {
+                        $formations[$trainRow['formation']] = true;
+                    }
                 }
             } catch (RemoteBlockedError $remoteBlockedError) {
                 throw $remoteBlockedError;
@@ -762,6 +769,51 @@ class UpdateSchedule extends Command
         }
 
         return $totalMinutes <= self::MAX_REASONABLE_TRAVEL_MINUTES;
+    }
+
+    /**
+     * Every train seen by an adjacent seed query must survive formation expansion.
+     * Trains without a number, or whose formation table did not include that hop,
+     * would otherwise vanish silently; keep them for that pair and say so.
+     */
+    private function reconcileSeedSchedules(array &$schedules): void
+    {
+        $missingRows = [];
+
+        foreach ($this->seedSchedules as $scheduleKey => $seedRows) {
+            $expandedRows = [];
+
+            foreach ($schedules[$scheduleKey] ?? [] as $scheduleRow) {
+                $expandedRows["{$scheduleRow[0]}|{$scheduleRow[1]}"] = true;
+            }
+
+            foreach ($seedRows as $seedRow) {
+                if (isset($expandedRows["{$seedRow['departure']}|{$seedRow['arrival']}"])) {
+                    continue;
+                }
+
+                $schedules[$scheduleKey][] = [$seedRow['departure'], $seedRow['arrival']];
+                $expandedRows["{$seedRow['departure']}|{$seedRow['arrival']}"] = true;
+                $missingRows[] = "{$scheduleKey} " . ($seedRow['formation'] !== '' ? $seedRow['formation'] : '(no train number)') .
+                    " {$seedRow['departure']}-{$seedRow['arrival']}";
+            }
+        }
+
+        if (empty($missingRows)) {
+            $this->comment('All trains seen by adjacent seed queries are covered by formation schedules.');
+
+            return;
+        }
+
+        $this->warn(
+            count($missingRows) . ' trains seen by adjacent seed queries were missing from formation schedules ' .
+            'and were added to their adjacent pair only: ' . implode(', ', array_slice($missingRows, 0, 20)) .
+            (count($missingRows) > 20 ? ', ...' : '')
+        );
+        $this->line(
+            '::warning title=Trains missing from formation schedules::' . count($missingRows) .
+            ' seed trains were not covered by formation queries; only their adjacent pairs include them.'
+        );
     }
 
     /**
